@@ -20,9 +20,6 @@
             padding: 0;
             background-color: #f4f4f4;
             overflow: hidden; /* Prevent entire page scrolling */
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
         }
 
         #chat-container {
@@ -33,9 +30,9 @@
             border-radius: 8px;
             overflow: hidden;
             padding: 1rem;
-            flex-grow: 1;
             display: flex;
             flex-direction: column;
+            height: 100vh;
         }
 
         #chat-header {
@@ -47,35 +44,16 @@
             margin-bottom: 1rem;
         }
 
-        #room-input {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        #room-number {
-            flex-grow: 1;
-            margin-right: 1rem;
-        }
-
-        #join-room-button {
-            background-color: #4285f4;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
         #chat-messages {
             list-style-type: none;
             padding: 0;
             margin: 0;
+            flex-grow: 1;
             overflow-y: auto;
             padding: 0.5rem;
             border-radius: 8px;
             border: 1px solid #eee;
-            flex-grow: 1;
+            max-height: 300px; /* Limit height for scrolling */
         }
 
         #chat-messages li {
@@ -85,11 +63,10 @@
 
         #chat-input {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             padding: 1rem;
             background-color: #f9f9f9;
             border-radius: 8px;
-            margin-top: auto; /* Push to the bottom */
         }
 
         #message {
@@ -115,10 +92,9 @@
         <h2>Chat Application</h2>
     </div>
 
-    <div id="room-input">
+    <div>
         <label for="roomNumber">Enter room number:</label>
         <input type="text" id="roomNumber" placeholder="Room Number" class="sapMInputBaseContent">
-        <button id="join-room-button" onclick="joinRoom()" class="sapMBtn sapMBtnBase">Join Room</button>
     </div>
 
     <div>
@@ -137,46 +113,18 @@
 <script>
     let roomNumber = '';
     let userName = '';
-    let eventSource;
+    let currentState = 0;  // Keeps track of the current state
 
-    function joinRoom() {
+    function sendMessage() {
         roomNumber = document.getElementById('roomNumber').value;
+        userName = document.getElementById('userName').value;
+        const messageContent = document.getElementById('message').value;
 
         if (roomNumber.trim() === "") {
             alert("Please enter a room number.");
             return;
         }
 
-        // Close existing EventSource if any
-        if (eventSource) {
-            eventSource.close();
-        }
-
-        // Subscribe to Server-Sent Events only when joining a room
-        eventSource = new EventSource(`/api/chat/subscribe?roomNumber=${roomNumber}&currentState=0`);
-
-        eventSource.onmessage = function (event) {
-            const messages = JSON.parse(event.data);
-            updateChatHistory(messages);
-        };
-
-        eventSource.onerror = function (event) {
-            console.error("Error with SSE:", event);
-            eventSource.close();
-        };
-
-        // Close the EventSource when the page is closed or unloaded
-        window.onbeforeunload = function () {
-            if (eventSource) {
-                eventSource.close();
-            }
-        };
-    }
-
-    function sendMessage() {
-        userName = document.getElementById('userName').value;
-        const messageContent = document.getElementById('message').value;
-        roomNumber = document.getElementById('roomNumber').value;
         if (userName.trim() === "") {
             alert("Please enter your name.");
             return;
@@ -184,10 +132,6 @@
 
         if (messageContent.trim() === "") {
             alert("Please enter a message.");
-            return;
-        }
-        if (roomNumber.trim() === "") {
-            alert("Please enter a room Number.");
             return;
         }
 
@@ -214,6 +158,27 @@
         };
     }
 
+    function fetchMessages() {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", `/api/chat/history?roomNumber=${roomNumber}&currentState=${currentState}`, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const messages = JSON.parse(xhr.responseText);
+                if (messages !== null) {
+                    updateChatHistory(messages);
+                    currentState += messages.length;
+                }
+            } else {
+                console.error("Failed to fetch messages.");
+                // Handle errors here
+            }
+        };
+
+        xhr.send();
+    }
+
     function updateChatHistory(messages) {
         const messagesList = document.getElementById('chat-messages');
         messages.forEach(message => {
@@ -222,6 +187,9 @@
             messagesList.appendChild(listItem);
         });
     }
+
+    // Fetch messages every 2 seconds
+    setInterval(fetchMessages, 2000);
 </script>
 </body>
 </html>
