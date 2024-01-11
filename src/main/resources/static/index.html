@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Application</title>
+</head>
+<body>
+<h1>Chat Application</h1>
+
+<div>
+    <label for="roomNumber">Enter room number:</label>
+    <input type="text" id="roomNumber" placeholder="Room Number">
+</div>
+
+<div>
+    <label for="userName">Enter your name:</label>
+    <input type="text" id="userName" placeholder="Your Name">
+</div>
+
+<div>
+    <label for="message">Enter your message:</label>
+    <input type="text" id="message" placeholder="Type your message">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<div>
+    <h2>Chat History</h2>
+    <ul id="messages"></ul>
+</div>
+
+<script>
+    let roomNumber = '';
+    let userName = '';
+    let currentState = 0;  // Keeps track of the current state
+
+    function sendMessage() {
+        roomNumber = document.getElementById('roomNumber').value;
+        userName = document.getElementById('userName').value;
+        const messageContent = document.getElementById('message').value;
+
+        if (roomNumber.trim() === "") {
+            alert("Please enter a room number.");
+            return;
+        }
+
+        if (userName.trim() === "") {
+            alert("Please enter your name.");
+            return;
+        }
+
+        if (messageContent.trim() === "") {
+            alert("Please enter a message.");
+            return;
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/chat/send?roomNumber=" + roomNumber, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        const message = {
+            sender: userName,
+            content: messageContent
+        };
+
+        xhr.send(JSON.stringify(message));
+
+        // Optionally, you can handle the response from the server
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                console.log("Message sent successfully!");
+                // You can perform additional actions here if needed
+            } else {
+                console.error("Failed to send message.");
+                // Handle errors here
+            }
+        };
+    }
+
+    function fetchMessages() {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", `/api/chat/history?roomNumber=${roomNumber}&currentState=${currentState}`, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const messages = JSON.parse(xhr.responseText);
+                if (messages !== null) {
+                    updateChatHistory(messages);
+                    currentState += messages.length;
+                }
+            } else {
+                console.error("Failed to fetch messages.");
+                // Handle errors here
+            }
+        };
+
+        xhr.send();
+    }
+
+    function updateChatHistory(messages) {
+        const messagesList = document.getElementById('messages');
+        messages.forEach(message => {
+            const listItem = document.createElement('li');
+            listItem.textContent = `${message.sender}: ${message.content}`;
+            messagesList.appendChild(listItem);
+        });
+    }
+
+    // Fetch messages every 2 seconds
+    setInterval(fetchMessages, 2000);
+</script>
+</body>
+</html>
